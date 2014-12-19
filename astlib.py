@@ -1,0 +1,230 @@
+#!/usr/bin/env python
+
+import socket
+
+# https://docs.python.org/2/library/socket.html
+
+
+class AstBase(object):
+    mask = 'off'
+
+    def __init__(self, host, user, password, port=5038):
+        self.connect_info = {'host': host, 'port': int(port), 'user': user, 'password': password}
+
+    def _connect(self, socket_timeout=None):
+        _socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # if socket_timeout is None or socket_timeout > 0:
+        #     pass
+        #     # print('send to blocking socket, timeout "%s"' % socket_timeout)
+        # elif socket_timeout == 0.0:
+        #     print('send to non blocking socket, timeout "%s"' % socket_timeout)
+        # else:
+        #     raise Exception('send to ELSE socket, timeout "%s"' % socket_timeout)
+
+        _socket.settimeout(socket_timeout)
+        _socket.connect((self.connect_info['host'], self.connect_info['port']))
+
+        return _socket
+
+    def _raw_send_s(self, send_buf, recv_buf_size=1024*1024, socket_timeout=None, stop_buf=None):
+        response = ()
+        _socket = self._connect(socket_timeout=socket_timeout)
+        try:
+            # print('--[%s]--' % send_buf)
+            _socket.sendall(send_buf)
+            while 1:
+                recv_buf = _socket.recv(recv_buf_size)
+                # print('--[%s]--' % recv_buf)
+
+                if recv_buf:
+                    response += (recv_buf,)
+                    if stop_buf:
+                        if stop_buf in recv_buf:
+                            # print('----- stop buf break')
+                            break
+                else:
+                    # print('----- break')
+                    break
+
+        except socket.timeout:
+            pass
+
+        # print('socket shutdown', _socket.shutdown(0))
+        # print('socket close', _socket.close())
+
+        return ''.join(response)
+
+    def set_events_mask(self, mask):
+        pass
+        # FIX ME
+        # validate mask here
+        # self.mask = mask
+        # response = self.raw_send('Action: Events\r\nActionID: ALP_%s_EventsMask\r\nEventMask: %s\r\n\r\n'
+        #                          % (self.mask, self.connect_data['user']))
+        # response = self.parse_packets(response)
+
+    def set_events_off(self):
+        return self.set_events_mask('off')
+
+
+class AstAMI(AstBase):
+    socket_timeout = None
+
+    def command_s(self, send_buf, action_id=None, stop_buf=None, socket_timeout=1.0):
+        if socket_timeout:
+            self.socket_timeout = socket_timeout
+
+        if send_buf.lower().find('actionid: ') >= 0:
+            action_id = None
+        else:
+            if action_id:
+                send_buf = send_buf.replace('\r\n\r\n', '\r\nActionID: %s\r\n\r\n' % action_id)
+            else:
+                send_buf = send_buf.replace('\r\n\r\n', '\r\nActionID: ALP_%s_Command\r\n\r\n'
+                                                        % self.connect_info['user'])
+                action_id = None
+
+        send_buf_s = ('Action: Login\r\nUsername: %(user)s\r\n'
+                      'Secret: %(password)s\r\nEvents: off\r\n\r\n' % self.connect_info)
+        send_buf_s = '%s%s' % (send_buf_s, send_buf)
+
+        # ts = [time.time()]
+        response = self._raw_send_s(send_buf=send_buf_s, recv_buf_size=1024*1024,
+                                    socket_timeout=self.socket_timeout, stop_buf=stop_buf)
+        # ts.append(time.time())
+        # print(ts[1]-ts[0])
+        return parse_packets(response, action_id)
+
+    def get_all_channels_s(self, key=None):
+        action_id = 'ALP_%s_CoreShowChannels' % self.connect_info['user']
+        send_buf = 'Action: CoreShowChannels\r\n\r\n'
+        stop_buf = 'Event: CoreShowChannelsComplete\r\nEventList: Complete\r\n'
+
+        response = self.command_s(send_buf, action_id, stop_buf, socket_timeout=1)
+
+        if not response:
+            return {}
+
+        # handle response, check final packet
+        fin = response[-1]
+        if fin.get('event') == 'CoreShowChannelsComplete':
+            if fin.get('eventlist') == 'Complete':
+                pass
+            else:
+                raise Exception('Core Show Channels Complete: "%s"' % fin.get('eventlist'))
+        else:
+            fins = [pd for pd in response if pd.get('event') == 'CoreShowChannelsComplete']
+            if fins:
+                fin = fins[0]
+            else:
+                raise Exception('Core Show Channels: no FIN packet')
+
+        if key:
+            key = str(key).lower()
+            if key not in ('channel', 'uniqueid', 'bridgedchannel', 'bridgeduniqueid', 'calleridname', 'calleridnum'):
+                key = 'channel'
+
+            return dict((pd[key], pd) for pd in response if pd.get('event') == 'CoreShowChannel')
+        else:
+            return tuple(pd for pd in response if pd.get('event') == 'CoreShowChannel')
+
+    def sip_show_peers_s(self, key=None):
+        action_id = 'ALP_%s_SipShowPeers' % self.connect_info['user']
+        send_buf = 'Action: SIPPeers\r\n\r\n'
+        stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
+
+        response = self.command_s(send_buf, action_id, stop_buf, socket_timeout=1)
+
+        if not response:
+            return {}
+
+        # handle response, check final packet
+        fin = response[-1]
+        if fin.get('event') == 'PeerlistComplete':
+            if fin.get('eventlist') == 'Complete':
+                pass
+            else:
+                raise Exception('Sip Show Peers Complete: "%s"' % fin.get('eventlist'))
+        else:
+            fins = [pd for pd in response if pd.get('event') == 'PeerlistComplete']
+            if fins:
+                fin = fins[0]
+            else:
+                raise Exception('Sip Show Peers: no FIN packet')
+
+        if key:
+            key = str(key).lower()
+            if key not in ('objectname',):
+                key = 'objectname'
+
+            return dict((pd[key], pd) for pd in response if pd.get('event') == 'PeerEntry')
+        else:
+            return tuple(pd for pd in response if pd.get('event') == 'PeerEntry')
+
+    def iax_show_peers_s(self, key=None):
+        action_id = 'ALP_%s_IaxShowPeers' % self.connect_info['user']
+        send_buf = 'Action: IAXpeerlist\r\n\r\n'
+        stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
+
+
+# --- helpers ----------------------------------------------------------------------------------------------------------
+
+
+def parse_packets(data, action_id=None):
+    packets = ()
+    if not isinstance(data, (str, type(u''))):
+        raise ValueError('Wrong input data type, got %s, need str or unicode' % type(data))
+
+    for packet_row in data.split('\r\n\r\n'):
+        pd = decode_packet(packet_row)
+        if pd:
+            if pd.get('response'):
+                if pd['response'] != 'Success':
+                    packets += (pd,)
+                    raise Exception(pd.values())
+
+            if action_id:
+                if pd.get('actionid') == action_id:
+                    packets += (pd,)
+            else:
+                pd.pop('actionid', None)
+                packets += (pd,)
+
+    return packets
+
+
+def encode_packet(full=True, **kwargs):
+    ENDL = u'\r\n'
+    _order = [u'Event', u'EventList']
+
+    custom_fields = list(set(kwargs.keys()).difference(set(_order)))
+    packet_fields = _order
+    packet_fields.extend(custom_fields)
+    packet_l = list(u'%s: %s' % (field_name, kwargs[field_name])
+                    for field_name in packet_fields if kwargs.get(field_name))
+
+    return u'%s%s' % (ENDL.join(packet_l), ENDL if full else '')
+
+
+def decode_packet(packet_row):
+    # full uncut packet must be in packet_row as single string
+    packet = {}
+    rows = packet_row.split('\r\n')
+    rows.reverse()
+    val_pieces = []
+    for row in rows:
+        pair = row.split(': ', 1)
+        if len(pair) == 2:
+            key, val = pair
+            key = key.strip().lower()
+            val_pieces.insert(0, val)
+            packet[key] = '\r\n'.join(val_pieces)
+            val_pieces = []
+
+        elif len(pair) == 1 and pair[0]:
+            val_pieces.insert(0, pair[0])
+
+    return packet
+
+

@@ -10,12 +10,20 @@ from astlib import AstAMI
 
 # python2 astlib_utest.py ValidTests
 class ValidTests(unittest.TestCase):
-    def test_1_is_dict(self):
+    def test_1_is_tuple(self):
         """
         Valid connect data, call get_all_channels_s()
         """
         ast_ami = AstAMI(**{'host': amihost, 'port': amiport, 'user': amiuser, 'password': amipass})
         channels = ast_ami.get_all_channels_s()
+        self.assertIsInstance(channels, tuple)
+
+    def test_2_is_dict(self):
+        """
+        Valid connect data, call get_all_channels_s(key='channel')
+        """
+        ast_ami = AstAMI(**{'host': amihost, 'port': amiport, 'user': amiuser, 'password': amipass})
+        channels = ast_ami.get_all_channels_s(key='channel')
         self.assertIsInstance(channels, dict)
 
 
