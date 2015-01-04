@@ -167,6 +167,39 @@ class AstAMI(AstBase):
         send_buf = 'Action: IAXpeerlist\r\n\r\n'
         stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
 
+    def get_queue_status_s(self, queue=None, member=None):
+        action_id = 'ALP_%s_QueueStatus' % self.connect_info['user']
+        send_buf = 'Action: QueueStatus\r\n\r\n'
+        stop_buf = 'Event: QueueStatusComplete\r\n'
+
+        if queue or member:
+            # FIX ME
+            raise Warning('Method not ready')
+
+        response = self.command_s(send_buf, action_id, stop_buf, socket_timeout=1)
+
+        if not response:
+            return {}
+
+        # handle response, check final packet
+        fin = response[-1]
+        if fin.get('event') != 'QueueStatusComplete':
+            raise Exception('Queue Status: no FIN packet')
+
+        result = {'queue_params': {}, 'queue_members': {}}
+        for pd in response:
+            if pd.get('event') == 'QueueParams':
+                result['queue_params'].update({pd.get('queue'): pd})
+            elif pd.get('event') == 'QueueMember':
+                result['queue_members'].update({pd.get('name'): pd})
+            else:
+                pass
+
+        return result
+
+    def get_all_queue_status_s(self, queue=None, member=None):
+        return self.get_queue_status_s()
+
 
 # --- helpers ----------------------------------------------------------------------------------------------------------
 
