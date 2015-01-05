@@ -29,8 +29,15 @@ class AstBase(object):
 
     def _raw_send_s(self, send_buf, recv_buf_size=1024*1024, socket_timeout=None, stop_buf=None):
         response = ()
-        _socket = self._connect(socket_timeout=socket_timeout)
+
+        if stop_buf:
+            _socket = self._connect()
+        else:
+            _socket = self._connect(socket_timeout=socket_timeout)
+
         try:
+            send_buf = str(send_buf)
+            # print(type(send_buf), send_buf)
             # print('--[%s]--' % send_buf)
             _socket.sendall(send_buf)
             while 1:
@@ -47,12 +54,14 @@ class AstBase(object):
                     # print('----- break')
                     break
 
-        except socket.timeout:
-            pass
+        except socket.timeout as ste:
+            if stop_buf:
+                raise ste
 
         # print('socket shutdown', _socket.shutdown(0))
         # print('socket close', _socket.close())
 
+        # print('--%s--' % ''.join(response))
         return ''.join(response)
 
     def set_events_mask(self, mask):
@@ -74,6 +83,13 @@ class AstAMI(AstBase):
     def command_s(self, send_buf, action_id=None, stop_buf=None, socket_timeout=1.0):
         if socket_timeout:
             self.socket_timeout = socket_timeout
+
+        if isinstance(send_buf, (str, type(u''))):
+            pass
+        elif isinstance(send_buf, dict):
+            send_buf = encode_packet(**send_buf)
+        else:
+            raise ValueError('send buffer - wrong data type(%s)' % type(send_buf))
 
         if send_buf.lower().find('actionid: ') >= 0:
             action_id = None
@@ -97,11 +113,10 @@ class AstAMI(AstBase):
         return parse_packets(response, action_id)
 
     def get_all_channels_s(self, key=None):
-        action_id = 'ALP_%s_CoreShowChannels' % self.connect_info['user']
-        send_buf = 'Action: CoreShowChannels\r\n\r\n'
+        send_d = {'Action': 'CoreShowChannels', 'ActionID': 'ALP_%s_CoreShowChannels' % self.connect_info['user']}
         stop_buf = 'Event: CoreShowChannelsComplete\r\nEventList: Complete\r\n'
 
-        response = self.command_s(send_buf, action_id, stop_buf, socket_timeout=1)
+        response = self.command_s(send_d, stop_buf=stop_buf)
 
         if not response:
             return {}
@@ -109,16 +124,10 @@ class AstAMI(AstBase):
         # handle response, check final packet
         fin = response[-1]
         if fin.get('event') == 'CoreShowChannelsComplete':
-            if fin.get('eventlist') == 'Complete':
-                pass
-            else:
+            if fin.get('eventlist') != 'Complete':
                 raise Exception('Core Show Channels Complete: "%s"' % fin.get('eventlist'))
         else:
-            fins = [pd for pd in response if pd.get('event') == 'CoreShowChannelsComplete']
-            if fins:
-                fin = fins[0]
-            else:
-                raise Exception('Core Show Channels: no FIN packet')
+            raise Exception('Core Show Channels: no FIN packet')
 
         if key:
             key = str(key).lower()
@@ -130,11 +139,10 @@ class AstAMI(AstBase):
             return tuple(pd for pd in response if pd.get('event') == 'CoreShowChannel')
 
     def sip_show_peers_s(self, key=None):
-        action_id = 'ALP_%s_SipShowPeers' % self.connect_info['user']
-        send_buf = 'Action: SIPPeers\r\n\r\n'
+        send_d = {'Action': 'SIPPeers', 'ActionID': 'ALP_%s_SipShowPeers' % self.connect_info['user']}
         stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
 
-        response = self.command_s(send_buf, action_id, stop_buf, socket_timeout=1)
+        response = self.command_s(send_d, stop_buf=stop_buf)
 
         if not response:
             return {}
@@ -142,16 +150,10 @@ class AstAMI(AstBase):
         # handle response, check final packet
         fin = response[-1]
         if fin.get('event') == 'PeerlistComplete':
-            if fin.get('eventlist') == 'Complete':
-                pass
-            else:
+            if fin.get('eventlist') != 'Complete':
                 raise Exception('Sip Show Peers Complete: "%s"' % fin.get('eventlist'))
         else:
-            fins = [pd for pd in response if pd.get('event') == 'PeerlistComplete']
-            if fins:
-                fin = fins[0]
-            else:
-                raise Exception('Sip Show Peers: no FIN packet')
+            raise Exception('Sip Show Peers: no FIN packet')
 
         if key:
             key = str(key).lower()
@@ -168,15 +170,24 @@ class AstAMI(AstBase):
         stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
 
     def get_queue_status_s(self, queue=None, member=None):
-        action_id = 'ALP_%s_QueueStatus' % self.connect_info['user']
-        send_buf = 'Action: QueueStatus\r\n\r\n'
+        # Status numbers
+        # 1 - Not in Use
+        # 2 - In Use
+        # 3 - Busy
+        # 4 -
+        # 5 - Unavailable
+        # 6 - Ringing
+
+        send_d = {'Action': 'QueueStatus', 'ActionID': 'ALP_%s_QueueStatus' % self.connect_info['user']}
         stop_buf = 'Event: QueueStatusComplete\r\n'
 
-        if queue or member:
-            # FIX ME
-            raise Warning('Method not ready')
+        if queue:
+            send_d['Queue'] = '%s' % queue
 
-        response = self.command_s(send_buf, action_id, stop_buf, socket_timeout=1)
+        if member:
+            send_d['Member'] = '%s' % member
+
+        response = self.command_s(send_d, stop_buf=stop_buf)
 
         if not response:
             return {}
@@ -186,10 +197,12 @@ class AstAMI(AstBase):
         if fin.get('event') != 'QueueStatusComplete':
             raise Exception('Queue Status: no FIN packet')
 
-        result = {'queue_params': {}, 'queue_members': {}}
+        result = {'queue_params': {}, 'queue_entries': {}, 'queue_members': {}}
         for pd in response:
             if pd.get('event') == 'QueueParams':
                 result['queue_params'].update({pd.get('queue'): pd})
+            elif pd.get('event') == 'QueueEntry':
+                result['queue_entries'].update({pd.get('channel'): pd})
             elif pd.get('event') == 'QueueMember':
                 result['queue_members'].update({pd.get('name'): pd})
             else:
@@ -197,7 +210,7 @@ class AstAMI(AstBase):
 
         return result
 
-    def get_all_queue_status_s(self, queue=None, member=None):
+    def get_all_queue_status_s(self):
         return self.get_queue_status_s()
 
 
@@ -237,7 +250,7 @@ def encode_packet(full=True, **kwargs):
     packet_l = list(u'%s: %s' % (field_name, kwargs[field_name])
                     for field_name in packet_fields if kwargs.get(field_name))
 
-    return u'%s%s' % (ENDL.join(packet_l), ENDL if full else '')
+    return u'%s%s' % (ENDL.join(packet_l), ENDL*2 if full is True else ENDL)
 
 
 def decode_packet(packet_row):
