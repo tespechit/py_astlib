@@ -103,7 +103,11 @@ class AstAMI(AstBase):
 
         send_buf_s = ('Action: Login\r\nUsername: %(user)s\r\n'
                       'Secret: %(password)s\r\nEvents: off\r\n\r\n' % self.connect_info)
-        send_buf_s = '%s%s' % (send_buf_s, send_buf)
+        send_logoff = 'Action: Logoff\r\n\r\n'
+        if action_id:
+            send_logoff = send_buf.replace('\r\n\r\n', '\r\nActionID: %s\r\n\r\n' % action_id)
+
+        send_buf_s = '%s%s%s' % (send_buf_s, send_buf, send_logoff)
 
         # ts = [time.time()]
         response = self._raw_send_s(send_buf=send_buf_s, recv_buf_size=1024*1024,
@@ -227,9 +231,16 @@ def parse_packets(data, action_id=None):
         pd = decode_packet(packet_row)
         if pd:
             if pd.get('response'):
-                if pd['response'] != 'Success':
+                if pd['response'] in ['Success']:
+                    pass
+                elif pd['response'] in ['Goodbye']:
+                    continue
+                # elif pd['response'] != 'Success':
+                #     packets += (pd,)
+                #     raise Exception(pd)
+                else:
                     packets += (pd,)
-                    raise Exception(pd.values())
+                    raise Exception(pd)
 
             if action_id:
                 if pd.get('actionid') == action_id:
