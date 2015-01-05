@@ -165,9 +165,10 @@ class AstAMI(AstBase):
             return tuple(pd for pd in response if pd.get('event') == 'PeerEntry')
 
     def iax_show_peers_s(self, key=None):
-        action_id = 'ALP_%s_IaxShowPeers' % self.connect_info['user']
-        send_buf = 'Action: IAXpeerlist\r\n\r\n'
+        send_d = {'Action': 'IAXpeerlist', 'ActionID': 'ALP_%s_IaxShowPeers' % self.connect_info['user']}
         stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
+
+        raise Exception('Method not ready')
 
     def get_queue_status_s(self, queue=None, member=None):
         # Status numbers
