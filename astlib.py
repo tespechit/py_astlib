@@ -143,6 +143,9 @@ class AstAMI(AstBase):
             return tuple(pd for pd in response if pd.get('event') == 'CoreShowChannel')
 
     def sip_show_peers_s(self, key=None):
+        return self.get_sip_peer_s(peer=None, key=key)
+
+    def get_sip_peer_s(self, peer=None, key=None):
         send_d = {'Action': 'SIPPeers', 'ActionID': 'ALP_%s_SipShowPeers' % self.connect_info['user']}
         stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
 
@@ -169,6 +172,9 @@ class AstAMI(AstBase):
             return tuple(pd for pd in response if pd.get('event') == 'PeerEntry')
 
     def iax_show_peers_s(self, key=None):
+        return self.get_iax_peer_s(peer=None, key=key)
+
+    def get_iax_peer_s(self, peer=None, key=None):
         send_d = {'Action': 'IAXpeerlist', 'ActionID': 'ALP_%s_IaxShowPeers' % self.connect_info['user']}
         stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
 
@@ -215,7 +221,7 @@ class AstAMI(AstBase):
 
         return result
 
-    def get_all_queue_status_s(self):
+    def get_all_queues_status_s(self):
         return self.get_queue_status_s()
 
 
