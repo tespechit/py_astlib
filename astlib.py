@@ -142,6 +142,20 @@ class AstAMI(AstBase):
         else:
             return tuple(pd for pd in response if pd.get('event') == 'CoreShowChannel')
 
+    def sip_show_peer(self, peer):
+        return self.get_peer_status(peer)
+
+    def get_peer_status(self, peer):
+        send_d = {'Action': 'SIPShowPeer', 'ActionID': 'ALP_%s_SIPShowPeer' % self.connect_info['user'], 'Peer': peer}
+        stop_buf = '\r\nResponse: Goodbye\r\n'
+
+        response = tuple(d for d in self.command_s(send_d, stop_buf=stop_buf) if d.get('objectname') == peer)
+
+        if not response:
+            return ()
+
+        return response
+
     def sip_show_peers_s(self, key=None):
         return self.get_sip_peer_s(peer=None, key=key)
 
