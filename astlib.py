@@ -229,7 +229,15 @@ class AstAMI(AstBase):
             elif pd.get('event') == 'QueueEntry':
                 result['queue_entries'].update({pd.get('channel'): pd})
             elif pd.get('event') == 'QueueMember':
-                result['queue_members'].update({pd.get('name'): pd})
+                if not result['queue_members'].get(pd['name']):
+                    result['queue_members'].update({pd['name']: pd})
+                else:
+                    result['queue_members'][pd['name']].update(pd)
+
+                if not result['queue_members'][pd['name']].get('queues'):
+                    result['queue_members'][pd['name']]['queues'] = ()
+                result['queue_members'][pd['name']]['queues'] += (result['queue_members'][pd['name']].pop('queue'),)
+
             else:
                 pass
 
