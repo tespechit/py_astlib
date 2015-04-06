@@ -5,25 +5,25 @@ from use_astlib_test import amipass
 from use_astlib_test import amiport
 from use_astlib_test import amihost
 
-from astlib import AstAMI
+from astlib import AstMI
 
 
 # python2 astlib_utest.py ValidTests
 class ValidTests(unittest.TestCase):
     def test_1_is_tuple(self):
         """
-        Valid connect data, call get_all_channels_s()
+        Valid connect data, call show_channels_s()
         """
-        ast_ami = AstAMI(**{'host': amihost, 'port': amiport, 'user': amiuser, 'password': amipass})
-        channels = ast_ami.get_all_channels_s()
+        ast_ami = AstMI(**{'host': amihost, 'port': amiport, 'user': amiuser, 'password': amipass})
+        channels = ast_ami.show_channels_s()
         self.assertIsInstance(channels, tuple)
 
     def test_2_is_dict(self):
         """
-        Valid connect data, call get_all_channels_s(key='channel')
+        Valid connect data, call show_channels_s(key='channel')
         """
-        ast_ami = AstAMI(**{'host': amihost, 'port': amiport, 'user': amiuser, 'password': amipass})
-        channels = ast_ami.get_all_channels_s(key='channel')
+        ast_ami = AstMI(**{'host': amihost, 'port': amiport, 'user': amiuser, 'password': amipass})
+        channels = ast_ami.show_channels_s(key='channel')
         self.assertIsInstance(channels, dict)
 
 
@@ -31,21 +31,21 @@ class ValidTests(unittest.TestCase):
 class InValidTests(unittest.TestCase):
     def test_2_except_on_err(self):
         """
-        Invalid connect data, call get_all_channels_s()
+        Invalid connect data, call show_channels_s()
         """
-        ast_ami = AstAMI(**{'host': 'badhostname.local', 'port': amiport, 'user': amiuser, 'password': amipass})
+        ast_ami = AstMI(**{'host': 'badhostname.local', 'port': amiport, 'user': amiuser, 'password': amipass})
         with self.assertRaises(Exception) as e:
-            ast_ami.get_all_channels_s()
-        print('\nBad Asterisk AMI address: %s' % e.exception)
+            ast_ami.show_channels_s()
+        print('\nBad AMI address: %s' % e.exception)
 
     def test_3_except_on_err(self):
         """
-        Invalid connect data, call get_all_channels_s()
+        Invalid connect data, call show_channels_s()
         """
-        ast_ami = AstAMI(**{'host': amihost, 'port': 66111, 'user': amiuser, 'password': amipass})
+        ast_ami = AstMI(**{'host': amihost, 'port': 66111, 'user': amiuser, 'password': amipass})
         with self.assertRaises(Exception) as e:
-            ast_ami.get_all_channels_s()
-        print('\nBad Asterisk AMI port: %s' % e.exception)
+            ast_ami.show_channels_s()
+        print('\nBad AMI port: %s' % e.exception)
 
 
 def main():

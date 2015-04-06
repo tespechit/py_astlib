@@ -77,7 +77,7 @@ class AstBase(object):
         return self.set_events_mask('off')
 
 
-class AstAMI(AstBase):
+class AstMI(AstBase):
     socket_timeout = None
 
     def command_s(self, send_buf, action_id=None, stop_buf=None, socket_timeout=1.0):
@@ -116,7 +116,8 @@ class AstAMI(AstBase):
         # print(ts[1]-ts[0])
         return parse_packets(response, action_id)
 
-    def get_all_channels_s(self, key=None):
+    # ami methods
+    def show_channels_s(self, key=None):
         send_d = {'Action': 'CoreShowChannels', 'ActionID': 'ALP_%s_CoreShowChannels' % self.connect_info['user']}
         stop_buf = 'Event: CoreShowChannelsComplete\r\nEventList: Complete\r\n'
 
@@ -143,9 +144,6 @@ class AstAMI(AstBase):
             return tuple(pd for pd in response if pd.get('event') == 'CoreShowChannel')
 
     def sip_show_peer(self, peer):
-        return self.get_peer_status(peer)
-
-    def get_peer_status(self, peer):
         send_d = {'Action': 'SIPShowPeer', 'ActionID': 'ALP_%s_SIPShowPeer' % self.connect_info['user'], 'Peer': peer}
         stop_buf = '\r\nResponse: Goodbye\r\n'
 
@@ -156,10 +154,10 @@ class AstAMI(AstBase):
 
         return response
 
-    def sip_show_peers_s(self, key=None):
-        return self.get_sip_peer_s(peer=None, key=key)
+    def sip_peer_status(self):
+        pass
 
-    def get_sip_peer_s(self, peer=None, key=None):
+    def sip_peers_s(self, key=None):
         send_d = {'Action': 'SIPPeers', 'ActionID': 'ALP_%s_SipShowPeers' % self.connect_info['user']}
         stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
 
@@ -185,16 +183,17 @@ class AstAMI(AstBase):
         else:
             return tuple(pd for pd in response if pd.get('event') == 'PeerEntry')
 
-    def iax_show_peers_s(self, key=None):
-        return self.get_iax_peer_s(peer=None, key=key)
-
-    def get_iax_peer_s(self, peer=None, key=None):
+    def iax_peer_list_s(self, key=None):
         send_d = {'Action': 'IAXpeerlist', 'ActionID': 'ALP_%s_IaxShowPeers' % self.connect_info['user']}
         stop_buf = 'Event: PeerlistComplete\r\nEventList: Complete\r\n'
 
         raise Exception('Method not ready')
 
-    def get_queue_status_s(self, queue=None, member=None):
+    # # queues ami
+    def queue_status_s(self, queue=None, member=None):
+        """
+
+
         # Status numbers
         # 1 - Not in Use
         # 2 - In Use
@@ -202,7 +201,7 @@ class AstAMI(AstBase):
         # 4 -
         # 5 - Unavailable
         # 6 - Ringing
-
+        """
         send_d = {'Action': 'QueueStatus', 'ActionID': 'ALP_%s_QueueStatus' % self.connect_info['user']}
         stop_buf = 'Event: QueueStatusComplete\r\n'
 
@@ -243,8 +242,8 @@ class AstAMI(AstBase):
 
         return result
 
-    def get_all_queues_status_s(self):
-        return self.get_queue_status_s()
+    def queues_status_all_s(self):
+        return self.queue_status_s()
 
 
 # --- helpers ----------------------------------------------------------------------------------------------------------
