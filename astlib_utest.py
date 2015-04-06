@@ -1,4 +1,5 @@
 import unittest
+from pprint import pprint
 
 from use_astlib_test import amiuser
 from use_astlib_test import amipass
@@ -6,7 +7,6 @@ from use_astlib_test import amiport
 from use_astlib_test import amihost
 
 from astlib import AstMI
-
 
 # python2 astlib_utest.py ValidTests
 class ValidTests(unittest.TestCase):
@@ -17,6 +17,7 @@ class ValidTests(unittest.TestCase):
         ast_ami = AstMI(**{'host': amihost, 'port': amiport, 'user': amiuser, 'password': amipass})
         channels = ast_ami.show_channels_s()
         self.assertIsInstance(channels, tuple)
+        pprint(channels)
 
     def test_2_is_dict(self):
         """
@@ -25,6 +26,14 @@ class ValidTests(unittest.TestCase):
         ast_ami = AstMI(**{'host': amihost, 'port': amiport, 'user': amiuser, 'password': amipass})
         channels = ast_ami.show_channels_s(key='channel')
         self.assertIsInstance(channels, dict)
+
+
+class CustomMethodTest(unittest.TestCase):
+    def test_1_sip_peer_status(self):
+        ast_ami = AstMI(**{'host': amihost, 'port': amiport, 'user': amiuser, 'password': amipass})
+        sip_peers = ast_ami.sip_peer_status()
+        self.assertIsInstance(sip_peers, tuple)
+        pprint(sip_peers)
 
 
 # python2 astlib_utest.py InValidTests

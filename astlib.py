@@ -9,6 +9,7 @@ class AstBase(object):
     mask = 'off'
 
     def __init__(self, host, user, password, port=5038):
+        # TODO # add port validation
         self.connect_info = {'host': host, 'port': int(port), 'user': user, 'password': password}
 
     def _connect(self, socket_timeout=None):
@@ -47,6 +48,7 @@ class AstBase(object):
                 if recv_buf:
                     response += (recv_buf,)
                     if stop_buf:
+                        # TODO # do something for case insensitive compare
                         if stop_buf in recv_buf:
                             # print('----- stop buf break')
                             break
@@ -118,7 +120,8 @@ class AstMI(AstBase):
 
     # ami methods
     def show_channels_s(self, key=None):
-        send_d = {'Action': 'CoreShowChannels', 'ActionID': 'ALP_%s_CoreShowChannels' % self.connect_info['user']}
+        send_d = {'Action': 'CoreShowChannels',
+                  'ActionID': 'ALP_%s_CoreShowChannels' % self.connect_info['user']}
         stop_buf = 'Event: CoreShowChannelsComplete\r\nEventList: Complete\r\n'
 
         response = self.command_s(send_d, stop_buf=stop_buf)
@@ -144,7 +147,12 @@ class AstMI(AstBase):
             return tuple(pd for pd in response if pd.get('event') == 'CoreShowChannel')
 
     def sip_show_peer(self, peer):
-        send_d = {'Action': 'SIPShowPeer', 'ActionID': 'ALP_%s_SIPShowPeer' % self.connect_info['user'], 'Peer': peer}
+        """
+        peer name must be specified
+        """
+        send_d = {'Action': 'SIPShowPeer',
+                  'ActionID': 'ALP_%s_SIPShowPeer' % self.connect_info['user'],
+                  'Peer': peer}
         stop_buf = '\r\nResponse: Goodbye\r\n'
 
         response = tuple(d for d in self.command_s(send_d, stop_buf=stop_buf) if d.get('objectname') == peer)
@@ -154,8 +162,18 @@ class AstMI(AstBase):
 
         return response
 
-    def sip_peer_status(self):
-        pass
+    def sip_peer_status(self, peer=None):
+        send_d = {'Action': 'SIPpeerStatus',
+                  'ActionID': 'ALP_%s_SIPPeerStatus' % self.connect_info['user'],
+                  'Peer': peer}
+        stop_buf = '\r\nEvent: SIPpeerstatusComplete\r\n'
+
+        response = tuple(d for d in self.command_s(send_d, stop_buf=stop_buf) if d.get('event') == 'PeerStatus')
+
+        if not response:
+            return ()
+
+        return response
 
     def sip_peers_s(self, key=None):
         send_d = {'Action': 'SIPPeers', 'ActionID': 'ALP_%s_SipShowPeers' % self.connect_info['user']}
