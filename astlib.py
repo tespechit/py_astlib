@@ -120,6 +120,31 @@ class AstMI(AstBase):
 
     # ami methods
     def show_channels_s(self, key=None):
+        """
+        If key is not none, return dict[key]=channel_dict, otherwise tuple of channel_dicts
+
+        channel_dict like:
+        {'accountcode': 'some account code',
+         'application': 'Queue',
+         'applicationdata': 'any_queue, t, , , 36000',
+         'bridgedchannel': '',
+         'bridgeduniqueid': '',
+         'calleridname': '',
+         'calleridnum': '81231231212',
+         'channel': 'SIP/EXT-SIP-000002b9',
+         'channelstate': '6',
+         'channelstatedesc': 'Up',
+         'connectedlinename': '',
+         'connectedlinenum': '',
+         'context': 'context',
+         'duration': '00:00:11',
+         'event': 'CoreShowChannel',
+         'extension': 's',
+         'priority': '6',
+         'uniqueid': 'systemname-1234567890.1101'}
+
+        """
+
         send_d = {'Action': 'CoreShowChannels',
                   'ActionID': 'ALP_%s_CoreShowChannels' % self.connect_info['user']}
         stop_buf = 'Event: CoreShowChannelsComplete\r\nEventList: Complete\r\n'
@@ -163,6 +188,17 @@ class AstMI(AstBase):
         return response
 
     def sip_peer_status(self, peer=None):
+        """
+        If peer is defined tuple with single peer_dict, otherwise tuple of peer_dicts
+
+        peer_dicts like:
+        {'channeltype': 'SIP',
+         'event': 'PeerStatus',
+         'peer': 'SIP/peer-name',
+         'peerstatus': 'Reachable',
+         'privilege': 'System',
+         'time': '6'}
+        """
         send_d = {'Action': 'SIPpeerStatus',
                   'ActionID': 'ALP_%s_SIPPeerStatus' % self.connect_info['user'],
                   'Peer': peer}
