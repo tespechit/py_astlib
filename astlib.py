@@ -124,24 +124,24 @@ class AstMI(AstBase):
         If key is not none, return dict[key]=channel_dict, otherwise tuple of channel_dicts
 
         channel_dict like:
-        {'accountcode': 'some account code',
-         'application': 'Queue',
-         'applicationdata': 'any_queue, t, , , 36000',
-         'bridgedchannel': '',
-         'bridgeduniqueid': '',
-         'calleridname': '',
-         'calleridnum': '81231231212',
-         'channel': 'SIP/EXT-SIP-000002b9',
-         'channelstate': '6',
-         'channelstatedesc': 'Up',
-         'connectedlinename': '',
-         'connectedlinenum': '',
-         'context': 'context',
-         'duration': '00:00:11',
-         'event': 'CoreShowChannel',
-         'extension': 's',
-         'priority': '6',
-         'uniqueid': 'systemname-1234567890.1101'}
+         {'accountcode': 'some_account_code',
+          'application': 'AppQueue',
+          'applicationdata': '(Outgoing Line)',
+          'bridgedchannel': 'SIP/ISP-ZBR-IN-00000051',
+          'bridgeduniqueid': 'systemname-1234567890.146',
+          'calleridname': 'character name',
+          'calleridnum': 'EXTEN',
+          'channel': 'SIP/EXTEN-00000055',
+          'channelstate': '6',
+          'channelstatedesc': 'Up',
+          'connectedlinename': '',
+          'connectedlinenum': '81231231212',
+          'context': 'context_name',
+          'duration': '00:00:25',
+          'event': 'CoreShowChannel',
+          'extension': 's',
+          'priority': '1',
+          'uniqueid': 'systemname-1234567890.152'}
 
         """
 
@@ -273,7 +273,7 @@ class AstMI(AstBase):
         # handle response, check final packet
         fin = response[-1]
         if fin.get('event') != 'QueueStatusComplete':
-            raise Exception('Queue Status: no FIN packet')
+            raise Exception(u'Queue Status: no FIN packet')
 
         result = {'queue_params': {}, 'queue_entries': {}, 'queue_members': {}}
         for pd in response:
@@ -304,37 +304,45 @@ class AstMI(AstBase):
 
 
 def parse_packets(data, action_id=None):
+    """
+    Parse raw inline data from socket, returns tuple of packet dicts
+    """
+
+    packet_end = u'\r\n\r\n'
     packets = ()
     if not isinstance(data, (str, type(u''))):
-        raise ValueError('Wrong input data type, got %s, need str or unicode' % type(data))
+        raise ValueError(u'Wrong input data type, got %s, need str or unicode' % type(data))
 
-    for packet_row in data.split('\r\n\r\n'):
-        pd = decode_packet(packet_row)
-        if pd:
-            if pd.get('response'):
-                if pd['response'] in ['Success']:
+    for packet_row in data.split(packet_end):
+        packet = decode_packet(packet_row)
+        if packet:
+            if packet.get('response'):
+                if packet['response'] in ['Success']:
                     pass
-                elif pd['response'] in ['Goodbye']:
+                elif packet['response'] in ['Goodbye']:
                     continue
-                # elif pd['response'] != 'Success':
-                #     packets += (pd,)
-                #     raise Exception(pd)
+                # elif packet['response'] != 'Success':
+                #     packets += (packet,)
+                #     raise Exception(packet)
                 else:
-                    packets += (pd,)
-                    raise Exception(pd)
+                    packets += (packet,)
+                    raise Exception(packet)
 
             if action_id:
-                if pd.get('actionid') == action_id:
-                    packets += (pd,)
+                if packet.get('actionid') == action_id:
+                    packets += (packet,)
             else:
-                pd.pop('actionid', None)
-                packets += (pd,)
+                packet.pop('actionid', None)
+                packets += (packet,)
 
     return packets
 
 
 def encode_packet(full=True, **kwargs):
-    ENDL = u'\r\n'
+    """
+    Serialise packet in dict to single string
+    """
+    end_line = u'\r\n'
     _order = [u'Event', u'EventList']
 
     custom_fields = list(set(kwargs.keys()).difference(set(_order)))
@@ -343,13 +351,18 @@ def encode_packet(full=True, **kwargs):
     packet_l = list(u'%s: %s' % (field_name, kwargs[field_name])
                     for field_name in packet_fields if kwargs.get(field_name))
 
-    return u'%s%s' % (ENDL.join(packet_l), ENDL*2 if full is True else ENDL)
+    return u'%s%s' % (end_line.join(packet_l), end_line*2 if full is True else end_line)
 
 
 def decode_packet(packet_row):
-    # full uncut packet must be in packet_row as single string
+    """
+    Parse inline packet to dict
+    Full uncut packet must be in packet_row as single string
+    """
+
+    end_line = u'\r\n'
     packet = {}
-    rows = packet_row.split('\r\n')
+    rows = packet_row.split(end_line)
     rows.reverse()
     val_pieces = []
     for row in rows:
@@ -358,7 +371,7 @@ def decode_packet(packet_row):
             key, val = pair
             key = key.strip().lower()
             val_pieces.insert(0, val)
-            packet[key] = '\r\n'.join(val_pieces)
+            packet[key] = end_line.join(val_pieces)
             val_pieces = []
 
         elif len(pair) == 1 and pair[0]:
