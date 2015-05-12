@@ -82,11 +82,11 @@ class AstBase(object):
 class AstMI(AstBase):
     socket_timeout = None
 
-    def command_s(self, send_buf, action_id=None, stop_buf=None, socket_timeout=1.0):
+    def command_s(self, send_buf, action_id=None, stop_buf=None, socket_timeout=None):
         if socket_timeout:
             self.socket_timeout = socket_timeout
 
-        if isinstance(send_buf, (str, type(u''))):
+        if isinstance(send_buf, str):
             pass
         elif isinstance(send_buf, dict):
             send_buf = encode_packet(**send_buf)
@@ -127,7 +127,7 @@ class AstMI(AstBase):
          {'accountcode': 'some_account_code',
           'application': 'AppQueue',
           'applicationdata': '(Outgoing Line)',
-          'bridgedchannel': 'SIP/ISP-ZBR-IN-00000051',
+          'bridgedchannel': 'SIP/BRIDGED-00000051',
           'bridgeduniqueid': 'systemname-1234567890.146',
           'calleridname': 'character name',
           'calleridnum': 'EXTEN',
@@ -308,9 +308,9 @@ def parse_packets(data, action_id=None):
     Parse raw inline data from socket, returns tuple of packet dicts
     """
 
-    packet_end = u'\r\n\r\n'
+    packet_end = '\r\n\r\n'
     packets = ()
-    if not isinstance(data, (str, type(u''))):
+    if not isinstance(data, str):
         raise ValueError(u'Wrong input data type, got %s, need str or unicode' % type(data))
 
     for packet_row in data.split(packet_end):
@@ -342,16 +342,16 @@ def encode_packet(full=True, **kwargs):
     """
     Serialise packet in dict to single string
     """
-    end_line = u'\r\n'
-    _order = [u'Event', u'EventList']
+    end_line = '\r\n'
+    _order = ['Event', 'EventList']
 
     custom_fields = list(set(kwargs.keys()).difference(set(_order)))
     packet_fields = _order
     packet_fields.extend(custom_fields)
-    packet_l = list(u'%s: %s' % (field_name, kwargs[field_name])
+    packet_l = list('%s: %s' % (field_name, kwargs[field_name])
                     for field_name in packet_fields if kwargs.get(field_name))
 
-    return u'%s%s' % (end_line.join(packet_l), end_line*2 if full is True else end_line)
+    return '%s%s' % (end_line.join(packet_l), end_line*2 if full is True else end_line)
 
 
 def decode_packet(packet_row):
@@ -360,7 +360,7 @@ def decode_packet(packet_row):
     Full uncut packet must be in packet_row as single string
     """
 
-    end_line = u'\r\n'
+    end_line = '\r\n'
     packet = {}
     rows = packet_row.split(end_line)
     rows.reverse()
