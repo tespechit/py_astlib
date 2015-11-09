@@ -1,6 +1,7 @@
 
 use_astlib_test.py
-test/
+*_dev
+params.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
