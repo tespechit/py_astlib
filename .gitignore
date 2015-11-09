@@ -1,6 +1,7 @@
 
 use_astlib_test.py
-*_dev
+*_dev/
+*_dev.py
 params.py
 
 # Byte-compiled / optimized / DLL files
