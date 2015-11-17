@@ -129,7 +129,13 @@ class OriginatePacket(BasePacket):
             raise TypeError('__init__() required app, [app_data] or context, exten, priority arguments')
 
         if variables:
-            pass
+            if isinstance(variables, dict):
+                if len(variables.keys()) > 32:
+                    raise OverflowError('Originate variable field limited to 32 vars')
+
+                self['Variable'] = ','.join(['%s=%s' % (k, v) for k, v in variables.items()])
+            else:
+                self['Variable'] = '%s' % variables
 
 
 class Response(object):
