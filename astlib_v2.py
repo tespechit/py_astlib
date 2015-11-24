@@ -1,4 +1,5 @@
 
+import json
 import socket
 # https://docs.python.org/2/library/socket.html
 
@@ -383,6 +384,57 @@ class AMI(AsteriskManager):
 
     def ping(self):
         return Response(self.send(BasePacket(Action='Ping')))
+
+    def get_config_json(self, config_name):
+        """Get config in JSON and save it into json attr
+        It follows #includes
+
+        Args:
+            config_name: Config file name
+        """
+        response = Response(self.send(BasePacket(Action='GetConfigJSON', Filename='%s' % config_name)))
+        if response.response.get('JSON'):
+            response.response['JSON'] = response.json = json.loads(response.response['JSON'])
+        return response
+
+    def get_config(self, config_name):
+        """Get config, parse it and save into json attr
+        It follows #includes
+
+        Args:
+            config_name: Config file name
+        """
+        response = Response(self.send(BasePacket(Action='GetConfig', Filename='%s' % config_name)))
+
+        def _parse(data):
+            # Category-000003
+            # Line-000003-000004
+            cat = {}
+            line = {}
+            for key, value in data.items():
+                value_l = value.split('=', 1)
+
+                if len(value_l) == 2:
+                    arg_name = value_l[0].strip()
+                    arg_value = value_l[1].strip()
+                else:
+                    arg_name = value_l[0].strip()
+                    arg_value = ''
+
+                key_l = key.split('-')
+                if key_l[0] == 'Category':
+                    cat[key_l[1]] = value
+
+                elif key_l[0] == 'Line':
+                    if not line.get(key_l[1]):
+                        line[key_l[1]] = []
+                    line[key_l[1]].append((arg_name, arg_value))
+
+            return dict((cat.get(k, k), dict(v)) for k, v in line.items())
+
+        response.json = _parse(response.response)
+
+        return response
 
     def core_show_channels(self):
         packet = BasePacket(Action='CoreShowChannels')
